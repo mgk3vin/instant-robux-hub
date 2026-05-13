@@ -91,7 +91,7 @@ function Landing() {
               )}
               <div className="text-sm uppercase tracking-wider text-muted-foreground">{p.name}</div>
               <div className="mt-2 flex items-baseline gap-2">
-                <span className="text-4xl font-bold text-gradient">{p.robux.toLocaleString()}</span>
+                <span className="text-4xl font-bold text-gradient">{p.robux.toLocaleString("en-US")}</span>
                 <span className="text-sm text-muted-foreground">Robux</span>
               </div>
               <div className="mt-1 text-2xl font-semibold">${p.price}</div>
