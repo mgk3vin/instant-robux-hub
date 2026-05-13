@@ -21,6 +21,10 @@ import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as ContactRouteImport } from './routes/contact'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as DashboardOrdersRouteImport } from './routes/dashboard.orders'
+import { Route as AdminOrdersRouteImport } from './routes/admin.orders'
+import { Route as DashboardOrdersIdRouteImport } from './routes/dashboard.orders.$id'
+import { Route as AdminOrdersIdRouteImport } from './routes/admin.orders.$id'
 
 const TermsRoute = TermsRouteImport.update({
   id: '/terms',
@@ -82,12 +86,32 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DashboardOrdersRoute = DashboardOrdersRouteImport.update({
+  id: '/orders',
+  path: '/orders',
+  getParentRoute: () => DashboardRoute,
+} as any)
+const AdminOrdersRoute = AdminOrdersRouteImport.update({
+  id: '/orders',
+  path: '/orders',
+  getParentRoute: () => AdminRoute,
+} as any)
+const DashboardOrdersIdRoute = DashboardOrdersIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => DashboardOrdersRoute,
+} as any)
+const AdminOrdersIdRoute = AdminOrdersIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => AdminOrdersRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/admin': typeof AdminRoute
+  '/admin': typeof AdminRouteWithChildren
   '/contact': typeof ContactRoute
-  '/dashboard': typeof DashboardRoute
+  '/dashboard': typeof DashboardRouteWithChildren
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
   '/new-order': typeof NewOrderRoute
@@ -96,12 +120,16 @@ export interface FileRoutesByFullPath {
   '/register': typeof RegisterRoute
   '/reset-password': typeof ResetPasswordRoute
   '/terms': typeof TermsRoute
+  '/admin/orders': typeof AdminOrdersRouteWithChildren
+  '/dashboard/orders': typeof DashboardOrdersRouteWithChildren
+  '/admin/orders/$id': typeof AdminOrdersIdRoute
+  '/dashboard/orders/$id': typeof DashboardOrdersIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/admin': typeof AdminRoute
+  '/admin': typeof AdminRouteWithChildren
   '/contact': typeof ContactRoute
-  '/dashboard': typeof DashboardRoute
+  '/dashboard': typeof DashboardRouteWithChildren
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
   '/new-order': typeof NewOrderRoute
@@ -110,13 +138,17 @@ export interface FileRoutesByTo {
   '/register': typeof RegisterRoute
   '/reset-password': typeof ResetPasswordRoute
   '/terms': typeof TermsRoute
+  '/admin/orders': typeof AdminOrdersRouteWithChildren
+  '/dashboard/orders': typeof DashboardOrdersRouteWithChildren
+  '/admin/orders/$id': typeof AdminOrdersIdRoute
+  '/dashboard/orders/$id': typeof DashboardOrdersIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/admin': typeof AdminRoute
+  '/admin': typeof AdminRouteWithChildren
   '/contact': typeof ContactRoute
-  '/dashboard': typeof DashboardRoute
+  '/dashboard': typeof DashboardRouteWithChildren
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
   '/new-order': typeof NewOrderRoute
@@ -125,6 +157,10 @@ export interface FileRoutesById {
   '/register': typeof RegisterRoute
   '/reset-password': typeof ResetPasswordRoute
   '/terms': typeof TermsRoute
+  '/admin/orders': typeof AdminOrdersRouteWithChildren
+  '/dashboard/orders': typeof DashboardOrdersRouteWithChildren
+  '/admin/orders/$id': typeof AdminOrdersIdRoute
+  '/dashboard/orders/$id': typeof DashboardOrdersIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -141,6 +177,10 @@ export interface FileRouteTypes {
     | '/register'
     | '/reset-password'
     | '/terms'
+    | '/admin/orders'
+    | '/dashboard/orders'
+    | '/admin/orders/$id'
+    | '/dashboard/orders/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -155,6 +195,10 @@ export interface FileRouteTypes {
     | '/register'
     | '/reset-password'
     | '/terms'
+    | '/admin/orders'
+    | '/dashboard/orders'
+    | '/admin/orders/$id'
+    | '/dashboard/orders/$id'
   id:
     | '__root__'
     | '/'
@@ -169,13 +213,17 @@ export interface FileRouteTypes {
     | '/register'
     | '/reset-password'
     | '/terms'
+    | '/admin/orders'
+    | '/dashboard/orders'
+    | '/admin/orders/$id'
+    | '/dashboard/orders/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  AdminRoute: typeof AdminRoute
+  AdminRoute: typeof AdminRouteWithChildren
   ContactRoute: typeof ContactRoute
-  DashboardRoute: typeof DashboardRoute
+  DashboardRoute: typeof DashboardRouteWithChildren
   ForgotPasswordRoute: typeof ForgotPasswordRoute
   LoginRoute: typeof LoginRoute
   NewOrderRoute: typeof NewOrderRoute
@@ -272,14 +320,88 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/dashboard/orders': {
+      id: '/dashboard/orders'
+      path: '/orders'
+      fullPath: '/dashboard/orders'
+      preLoaderRoute: typeof DashboardOrdersRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/admin/orders': {
+      id: '/admin/orders'
+      path: '/orders'
+      fullPath: '/admin/orders'
+      preLoaderRoute: typeof AdminOrdersRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/dashboard/orders/$id': {
+      id: '/dashboard/orders/$id'
+      path: '/$id'
+      fullPath: '/dashboard/orders/$id'
+      preLoaderRoute: typeof DashboardOrdersIdRouteImport
+      parentRoute: typeof DashboardOrdersRoute
+    }
+    '/admin/orders/$id': {
+      id: '/admin/orders/$id'
+      path: '/$id'
+      fullPath: '/admin/orders/$id'
+      preLoaderRoute: typeof AdminOrdersIdRouteImport
+      parentRoute: typeof AdminOrdersRoute
+    }
   }
 }
 
+interface AdminOrdersRouteChildren {
+  AdminOrdersIdRoute: typeof AdminOrdersIdRoute
+}
+
+const AdminOrdersRouteChildren: AdminOrdersRouteChildren = {
+  AdminOrdersIdRoute: AdminOrdersIdRoute,
+}
+
+const AdminOrdersRouteWithChildren = AdminOrdersRoute._addFileChildren(
+  AdminOrdersRouteChildren,
+)
+
+interface AdminRouteChildren {
+  AdminOrdersRoute: typeof AdminOrdersRouteWithChildren
+}
+
+const AdminRouteChildren: AdminRouteChildren = {
+  AdminOrdersRoute: AdminOrdersRouteWithChildren,
+}
+
+const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
+
+interface DashboardOrdersRouteChildren {
+  DashboardOrdersIdRoute: typeof DashboardOrdersIdRoute
+}
+
+const DashboardOrdersRouteChildren: DashboardOrdersRouteChildren = {
+  DashboardOrdersIdRoute: DashboardOrdersIdRoute,
+}
+
+const DashboardOrdersRouteWithChildren = DashboardOrdersRoute._addFileChildren(
+  DashboardOrdersRouteChildren,
+)
+
+interface DashboardRouteChildren {
+  DashboardOrdersRoute: typeof DashboardOrdersRouteWithChildren
+}
+
+const DashboardRouteChildren: DashboardRouteChildren = {
+  DashboardOrdersRoute: DashboardOrdersRouteWithChildren,
+}
+
+const DashboardRouteWithChildren = DashboardRoute._addFileChildren(
+  DashboardRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  AdminRoute: AdminRoute,
+  AdminRoute: AdminRouteWithChildren,
   ContactRoute: ContactRoute,
-  DashboardRoute: DashboardRoute,
+  DashboardRoute: DashboardRouteWithChildren,
   ForgotPasswordRoute: ForgotPasswordRoute,
   LoginRoute: LoginRoute,
   NewOrderRoute: NewOrderRoute,
