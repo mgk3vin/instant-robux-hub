@@ -319,21 +319,41 @@ function NewOrder() {
                       <Input id="ru" value={robloxUsername} onChange={(e) => setRobloxUsername(e.target.value)} placeholder="e.g. CoolGamer92" />
                     </div>
                   </div>
+
+                  {robloxUsername.trim().length >= 3 && (
+                    <div className="mt-5 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                      <QuestionnairePanel
+                        username={robloxUsername}
+                        confirmed={maturityConfirmed}
+                        refreshing={refreshing}
+                        onRefresh={refreshMaturity}
+                      />
+                    </div>
+                  )}
                 </Card>
 
-                <ApiKeyGuide
-                  apiKey={apiKey}
-                  setApiKey={setApiKey}
-                  maturityConfirmed={maturityConfirmed}
-                  refreshing={refreshing}
-                  onRefresh={refreshMaturity}
-                />
+                {maturityConfirmed && (
+                  <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
+                    <ApiKeyGuide
+                      apiKey={apiKey}
+                      setApiKey={setApiKey}
+                      validated={apiKeyValidated}
+                      validating={validatingKey}
+                      error={keyError}
+                      onValidate={validateKey}
+                    />
+                  </div>
+                )}
 
                 <DeliveryExplainer />
 
                 <div className="flex justify-between">
                   <Button variant="ghost" onClick={() => setStep(2)}><ArrowLeft className="mr-1.5 h-4 w-4" /> Back</Button>
-                  <Button onClick={() => setStep(4)} className="bg-gradient-primary text-primary-foreground">
+                  <Button
+                    onClick={() => setStep(4)}
+                    disabled={!maturityConfirmed || !apiKeyValidated || robloxUsername.trim().length < 3}
+                    className="bg-gradient-primary text-primary-foreground"
+                  >
                     Review order <ArrowRight className="ml-1.5 h-4 w-4" />
                   </Button>
                 </div>
@@ -358,7 +378,7 @@ function NewOrder() {
                 </p>
                 <div className="mt-6 flex justify-between">
                   <Button variant="ghost" onClick={() => setStep(3)}><ArrowLeft className="mr-1.5 h-4 w-4" /> Back</Button>
-                  <Button onClick={submit} disabled={submitting} className="bg-gradient-primary text-primary-foreground">
+                  <Button onClick={submit} disabled={!canSubmit} className="bg-gradient-primary text-primary-foreground">
                     {submitting ? "Submitting…" : "Submit order"}
                   </Button>
                 </div>
