@@ -18,45 +18,57 @@ export type Database = {
         Row: {
           admin_note: string | null
           created_at: string
-          gamepass_link: string
+          gamepass_link: string | null
           id: string
+          maturity_confirmed: boolean
           note: string | null
           package_name: string
           package_price: number
           payment_method: Database["public"]["Enums"]["payment_method"]
           payment_proof: string | null
+          payment_submitted_at: string | null
+          roblox_api_key: string | null
           roblox_username: string
           status: Database["public"]["Enums"]["order_status"]
+          transaction_id: string | null
           updated_at: string
           user_id: string
         }
         Insert: {
           admin_note?: string | null
           created_at?: string
-          gamepass_link: string
+          gamepass_link?: string | null
           id?: string
+          maturity_confirmed?: boolean
           note?: string | null
           package_name: string
           package_price: number
           payment_method: Database["public"]["Enums"]["payment_method"]
           payment_proof?: string | null
+          payment_submitted_at?: string | null
+          roblox_api_key?: string | null
           roblox_username: string
           status?: Database["public"]["Enums"]["order_status"]
+          transaction_id?: string | null
           updated_at?: string
           user_id: string
         }
         Update: {
           admin_note?: string | null
           created_at?: string
-          gamepass_link?: string
+          gamepass_link?: string | null
           id?: string
+          maturity_confirmed?: boolean
           note?: string | null
           package_name?: string
           package_price?: number
           payment_method?: Database["public"]["Enums"]["payment_method"]
           payment_proof?: string | null
+          payment_submitted_at?: string | null
+          roblox_api_key?: string | null
           roblox_username?: string
           status?: Database["public"]["Enums"]["order_status"]
+          transaction_id?: string | null
           updated_at?: string
           user_id?: string
         }
