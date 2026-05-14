@@ -91,7 +91,7 @@ Deno.serve(async (req: Request) => {
     // Check for game-passes scopes
     const scopes: string[] = data.scopes ?? [];
     const scopeStr = scopes.join(" ").toLowerCase();
-    const hasGamePassRead = scopeStr.includes("game-passes") || scopeStr.includes("game_passes") || scopeStr.includes("gamepasses");
+    const hasGamePassRead = scopeStr.includes("game-pass");
 
     if (!hasGamePassRead) {
       return new Response(
