@@ -12,6 +12,8 @@ import { SiteFooter } from "@/components/site-footer";
 import { PACKAGES } from "@/lib/packages";
 import { useAuth } from "@/hooks/use-auth";
 import { supabase } from "@/integrations/supabase/client";
+import { validateRobloxApiKey, checkRobloxMaturity } from "@/lib/roblox.functions";
+import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import {
   ArrowRight, ArrowLeft, Bitcoin, CreditCard, Wallet, CheckCircle2,
@@ -53,9 +55,19 @@ function NewOrder() {
   const [apiKey, setApiKey] = useState("");
   const [maturityConfirmed, setMaturityConfirmed] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [apiKeyValidated, setApiKeyValidated] = useState(false);
+  const [validatingKey, setValidatingKey] = useState(false);
+  const [keyError, setKeyError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [createdId, setCreatedId] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const validateKeyFn = useServerFn(validateRobloxApiKey);
+  const checkMaturityFn = useServerFn(checkRobloxMaturity);
+
+  useEffect(() => {
+    setApiKeyValidated(false);
+    setKeyError(null);
+  }, [apiKey]);
 
   useEffect(() => {
     if (!loading && !user) nav({ to: "/login" });
@@ -63,6 +75,12 @@ function NewOrder() {
 
   const selectedPkg = PACKAGES.find((p) => p.id === packageId)!;
   const selectedPay = PAYMENTS.find((p) => p.id === paymentMethod)!;
+  const canSubmit =
+    maturityConfirmed &&
+    apiKeyValidated &&
+    transactionId.trim().length >= 4 &&
+    robloxUsername.trim().length >= 3 &&
+    !submitting;
 
   const copy = (s: string) => { navigator.clipboard.writeText(s); toast.success("Copied to clipboard"); };
 
@@ -84,19 +102,56 @@ function NewOrder() {
     setStep(3);
   };
 
-  const refreshMaturity = () => {
+  const refreshMaturity = async () => {
     setRefreshing(true);
-    setTimeout(() => {
-      setMaturityConfirmed(true);
+    try {
+      const r = await checkMaturityFn();
+      if (r.ok) {
+        setMaturityConfirmed(true);
+        toast.success("Maturity rating verified: Minimal");
+      } else {
+        setMaturityConfirmed(false);
+        toast.error(r.error);
+      }
+    } catch {
+      toast.error("Could not verify maturity rating. Please try again.");
+    } finally {
       setRefreshing(false);
-      toast.success("Maturity rating verified: Minimal");
-    }, 1200);
+    }
+  };
+
+  const validateKey = async () => {
+    if (apiKey.trim().length < 20) {
+      const msg = "Please paste a valid Roblox API key.";
+      setKeyError(msg);
+      toast.error(msg);
+      return;
+    }
+    setValidatingKey(true);
+    setKeyError(null);
+    try {
+      const r = await validateKeyFn({ data: { apiKey: apiKey.trim() } });
+      if (r.ok) {
+        setApiKeyValidated(true);
+        toast.success("API key validated successfully");
+      } else {
+        setApiKeyValidated(false);
+        setKeyError(r.error);
+        toast.error(r.error);
+      }
+    } catch {
+      setKeyError("Could not validate API key. Please try again.");
+    } finally {
+      setValidatingKey(false);
+    }
   };
 
   const submit = async () => {
     const parsed = robloxSchema.safeParse({ roblox_username: robloxUsername, roblox_api_key: apiKey });
     if (!parsed.success) return toast.error(parsed.error.errors[0].message);
     if (!maturityConfirmed) return toast.error("Please verify your Minimal maturity rating first");
+    if (!apiKeyValidated) return toast.error("Please validate your API key first");
+    if (!transactionId.trim()) return toast.error("Missing transaction ID from payment step");
     if (!user) return;
     setSubmitting(true);
     const { data, error } = await supabase
