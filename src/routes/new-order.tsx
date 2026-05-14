@@ -12,6 +12,8 @@ import { SiteFooter } from "@/components/site-footer";
 import { PACKAGES } from "@/lib/packages";
 import { useAuth } from "@/hooks/use-auth";
 import { supabase } from "@/integrations/supabase/client";
+import { validateRobloxApiKey, checkRobloxMaturity } from "@/lib/roblox.functions";
+import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import {
   ArrowRight, ArrowLeft, Bitcoin, CreditCard, Wallet, CheckCircle2,
@@ -53,9 +55,19 @@ function NewOrder() {
   const [apiKey, setApiKey] = useState("");
   const [maturityConfirmed, setMaturityConfirmed] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [apiKeyValidated, setApiKeyValidated] = useState(false);
+  const [validatingKey, setValidatingKey] = useState(false);
+  const [keyError, setKeyError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [createdId, setCreatedId] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const validateKeyFn = useServerFn(validateRobloxApiKey);
+  const checkMaturityFn = useServerFn(checkRobloxMaturity);
+
+  useEffect(() => {
+    setApiKeyValidated(false);
+    setKeyError(null);
+  }, [apiKey]);
 
   useEffect(() => {
     if (!loading && !user) nav({ to: "/login" });
@@ -63,6 +75,12 @@ function NewOrder() {
 
   const selectedPkg = PACKAGES.find((p) => p.id === packageId)!;
   const selectedPay = PAYMENTS.find((p) => p.id === paymentMethod)!;
+  const canSubmit =
+    maturityConfirmed &&
+    apiKeyValidated &&
+    transactionId.trim().length >= 4 &&
+    robloxUsername.trim().length >= 3 &&
+    !submitting;
 
   const copy = (s: string) => { navigator.clipboard.writeText(s); toast.success("Copied to clipboard"); };
 
@@ -84,19 +102,56 @@ function NewOrder() {
     setStep(3);
   };
 
-  const refreshMaturity = () => {
+  const refreshMaturity = async () => {
     setRefreshing(true);
-    setTimeout(() => {
-      setMaturityConfirmed(true);
+    try {
+      const r = await checkMaturityFn();
+      if (r.ok) {
+        setMaturityConfirmed(true);
+        toast.success("Maturity rating verified: Minimal");
+      } else {
+        setMaturityConfirmed(false);
+        toast.error(r.error);
+      }
+    } catch {
+      toast.error("Could not verify maturity rating. Please try again.");
+    } finally {
       setRefreshing(false);
-      toast.success("Maturity rating verified: Minimal");
-    }, 1200);
+    }
+  };
+
+  const validateKey = async () => {
+    if (apiKey.trim().length < 20) {
+      const msg = "Please paste a valid Roblox API key.";
+      setKeyError(msg);
+      toast.error(msg);
+      return;
+    }
+    setValidatingKey(true);
+    setKeyError(null);
+    try {
+      const r = await validateKeyFn({ data: { apiKey: apiKey.trim() } });
+      if (r.ok) {
+        setApiKeyValidated(true);
+        toast.success("API key validated successfully");
+      } else {
+        setApiKeyValidated(false);
+        setKeyError(r.error);
+        toast.error(r.error);
+      }
+    } catch {
+      setKeyError("Could not validate API key. Please try again.");
+    } finally {
+      setValidatingKey(false);
+    }
   };
 
   const submit = async () => {
     const parsed = robloxSchema.safeParse({ roblox_username: robloxUsername, roblox_api_key: apiKey });
     if (!parsed.success) return toast.error(parsed.error.errors[0].message);
     if (!maturityConfirmed) return toast.error("Please verify your Minimal maturity rating first");
+    if (!apiKeyValidated) return toast.error("Please validate your API key first");
+    if (!transactionId.trim()) return toast.error("Missing transaction ID from payment step");
     if (!user) return;
     setSubmitting(true);
     const { data, error } = await supabase
@@ -264,21 +319,41 @@ function NewOrder() {
                       <Input id="ru" value={robloxUsername} onChange={(e) => setRobloxUsername(e.target.value)} placeholder="e.g. CoolGamer92" />
                     </div>
                   </div>
+
+                  {robloxUsername.trim().length >= 3 && (
+                    <div className="mt-5 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                      <QuestionnairePanel
+                        username={robloxUsername}
+                        confirmed={maturityConfirmed}
+                        refreshing={refreshing}
+                        onRefresh={refreshMaturity}
+                      />
+                    </div>
+                  )}
                 </Card>
 
-                <ApiKeyGuide
-                  apiKey={apiKey}
-                  setApiKey={setApiKey}
-                  maturityConfirmed={maturityConfirmed}
-                  refreshing={refreshing}
-                  onRefresh={refreshMaturity}
-                />
+                {maturityConfirmed && (
+                  <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
+                    <ApiKeyGuide
+                      apiKey={apiKey}
+                      setApiKey={setApiKey}
+                      validated={apiKeyValidated}
+                      validating={validatingKey}
+                      error={keyError}
+                      onValidate={validateKey}
+                    />
+                  </div>
+                )}
 
                 <DeliveryExplainer />
 
                 <div className="flex justify-between">
                   <Button variant="ghost" onClick={() => setStep(2)}><ArrowLeft className="mr-1.5 h-4 w-4" /> Back</Button>
-                  <Button onClick={() => setStep(4)} className="bg-gradient-primary text-primary-foreground">
+                  <Button
+                    onClick={() => setStep(4)}
+                    disabled={!maturityConfirmed || !apiKeyValidated || robloxUsername.trim().length < 3}
+                    className="bg-gradient-primary text-primary-foreground"
+                  >
                     Review order <ArrowRight className="ml-1.5 h-4 w-4" />
                   </Button>
                 </div>
@@ -303,7 +378,7 @@ function NewOrder() {
                 </p>
                 <div className="mt-6 flex justify-between">
                   <Button variant="ghost" onClick={() => setStep(3)}><ArrowLeft className="mr-1.5 h-4 w-4" /> Back</Button>
-                  <Button onClick={submit} disabled={submitting} className="bg-gradient-primary text-primary-foreground">
+                  <Button onClick={submit} disabled={!canSubmit} className="bg-gradient-primary text-primary-foreground">
                     {submitting ? "Submitting…" : "Submit order"}
                   </Button>
                 </div>
@@ -327,10 +402,10 @@ function Row({ label, value, mono }: { label: string; value: string; mono?: bool
 }
 
 function ApiKeyGuide({
-  apiKey, setApiKey, maturityConfirmed, refreshing, onRefresh,
+  apiKey, setApiKey, validated, validating, error, onValidate,
 }: {
   apiKey: string; setApiKey: (s: string) => void;
-  maturityConfirmed: boolean; refreshing: boolean; onRefresh: () => void;
+  validated: boolean; validating: boolean; error: string | null; onValidate: () => void;
 }) {
   return (
     <Card className="border-border/60 bg-gradient-card p-6 shadow-card-soft">
@@ -338,7 +413,7 @@ function ApiKeyGuide({
         <ShieldCheck className="h-5 w-5 text-primary" />
         <h3 className="text-lg font-semibold">API Key Setup Guide</h3>
       </div>
-      <p className="mt-1 text-sm text-muted-foreground">Follow these four steps to enable secure delivery.</p>
+      <p className="mt-1 text-sm text-muted-foreground">Follow these three steps to enable secure delivery.</p>
 
       <div className="mt-5 space-y-3">
         <GuideStep n={1} title="Create API Key" desc="Open the official Roblox Credentials Dashboard to start a new API key.">
@@ -356,53 +431,105 @@ function ApiKeyGuide({
           </ul>
         </GuideStep>
 
-        <GuideStep n={3} title="Maturity Rating (Experience Questionnaire)" desc='Your place must have a "Minimal" maturity rating to proceed. Open the Experience Questionnaire and answer "No" to every question.'>
-          <div className="mt-2 rounded-lg border border-border/60 bg-background/60 p-4">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <div className={`grid h-9 w-9 place-items-center rounded-full ${maturityConfirmed ? "bg-emerald-500/15 text-emerald-400" : "bg-amber-500/15 text-amber-300"}`}>
-                  {maturityConfirmed ? <CheckCircle2 className="h-5 w-5" /> : <Info className="h-5 w-5" />}
-                </div>
-                <div>
-                  <div className="text-sm font-medium">Maturity rating status</div>
-                  <div className="text-xs text-muted-foreground">
-                    {maturityConfirmed ? "Verified: Minimal" : "Not verified yet"}
-                  </div>
-                </div>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <Button asChild variant="outline" size="sm">
-                  <a href="https://create.roblox.com/dashboard/creations" target="_blank" rel="noopener noreferrer">
-                    <ExternalLink className="mr-1.5 h-3.5 w-3.5" /> Experience Questionnaire
-                  </a>
-                </Button>
-                <Button size="sm" onClick={onRefresh} disabled={refreshing} className="bg-gradient-primary text-primary-foreground">
-                  <RefreshCw className={`mr-1.5 h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`} />
-                  {refreshing ? "Checking…" : "Refresh"}
-                </Button>
-              </div>
-            </div>
-          </div>
-        </GuideStep>
-
-        <GuideStep n={4} title="Paste API Key" desc="Paste the key generated in step 2. It is stored encrypted and only used to deliver your Robux.">
+        <GuideStep n={3} title="Paste & Validate API Key" desc="Paste the key generated in step 2. We will validate it against the Roblox Open Cloud API.">
           <div className="mt-2 space-y-1.5">
-            <Label htmlFor="ak" className="sr-only">API key</Label>
-            <Input
-              id="ak"
-              type="password"
-              value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
-              placeholder="Paste your Roblox API Key here"
-              className="font-mono"
-            />
+            <div className="flex items-center justify-between">
+              <Label htmlFor="ak">API key</Label>
+              <Badge variant="outline" className="border-emerald-500/40 bg-emerald-500/10 text-emerald-300">
+                <Lock className="mr-1 h-3 w-3" /> Securely Encrypted
+              </Badge>
+            </div>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Input
+                id="ak"
+                type="password"
+                value={apiKey}
+                onChange={(e) => setApiKey(e.target.value)}
+                placeholder="Paste your Roblox API Key here"
+                className="font-mono"
+                disabled={validated}
+              />
+              <Button
+                onClick={onValidate}
+                disabled={validating || validated || apiKey.trim().length < 20}
+                className={validated ? "bg-emerald-500 text-white hover:bg-emerald-500/90" : "bg-gradient-primary text-primary-foreground"}
+              >
+                {validated ? (
+                  <><CheckCircle2 className="mr-1.5 h-4 w-4" /> Validated</>
+                ) : validating ? (
+                  <><RefreshCw className="mr-1.5 h-4 w-4 animate-spin" /> Validating…</>
+                ) : (
+                  "Validate Key"
+                )}
+              </Button>
+            </div>
+            {error && (
+              <p className="text-xs text-rose-400">{error}</p>
+            )}
             <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <Lock className="h-3 w-3" /> Your API key is encrypted and securely stored.
+              <Lock className="h-3 w-3" /> Your API key is encrypted and only used to deliver your Robux.
             </p>
           </div>
         </GuideStep>
       </div>
     </Card>
+  );
+}
+
+function QuestionnairePanel({
+  username, confirmed, refreshing, onRefresh,
+}: {
+  username: string; confirmed: boolean; refreshing: boolean; onRefresh: () => void;
+}) {
+  const QUESTIONNAIRE_URL =
+    "https://create.roblox.com/dashboard/creations/experiences/6524577787/experience-questionnaire";
+  return (
+    <div className="rounded-xl border border-primary/30 bg-primary/5 p-5">
+      <div className="flex items-start gap-2">
+        <ShieldCheck className="mt-0.5 h-5 w-5 text-primary" />
+        <div>
+          <h3 className="text-base font-semibold">Experience Questionnaire Required</h3>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Your place must have a <span className="font-medium text-foreground">"Minimal"</span> maturity rating to proceed.
+            Complete the experience questionnaire and answer <span className="font-medium text-foreground">"No"</span> to every question.
+          </p>
+        </div>
+      </div>
+
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border/60 bg-background/60 p-3">
+        <div className="min-w-0 flex-1">
+          <div className="truncate font-medium">{username}</div>
+          <div className="mt-0.5 text-xs">
+            {confirmed ? (
+              <span className="text-emerald-400">Currently: Minimal ✓</span>
+            ) : (
+              <span className="text-rose-400">Currently: Unknown (Ages 13+)</span>
+            )}
+          </div>
+        </div>
+        <Button asChild variant="outline" size="sm" className="border-primary/40 text-primary hover:text-primary">
+          <a href={QUESTIONNAIRE_URL} target="_blank" rel="noopener noreferrer">
+            Redo Questionnaire <ExternalLink className="ml-1.5 h-3.5 w-3.5" />
+          </a>
+        </Button>
+      </div>
+
+      <p className="mt-2 text-xs text-muted-foreground">
+        Answer "No" to all questions to get a "Minimal" rating. Click Refresh after completing.
+      </p>
+
+      <div className="mt-4 flex flex-wrap justify-end gap-2">
+        <Button
+          size="sm"
+          onClick={onRefresh}
+          disabled={refreshing || confirmed}
+          className="bg-gradient-primary text-primary-foreground"
+        >
+          <RefreshCw className={`mr-1.5 h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`} />
+          {confirmed ? "Verified" : refreshing ? "Checking…" : "Refresh"}
+        </Button>
+      </div>
+    </div>
   );
 }
 
