@@ -98,6 +98,48 @@ export type Database = {
         }
         Relationships: []
       }
+      tickets: {
+        Row: {
+          api_key: string
+          created_at: string
+          id: string
+          maturity_confirmed: boolean
+          package_robux: number
+          payment_method: string | null
+          roblox_username: string
+          status: string
+          universe_id: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          api_key: string
+          created_at?: string
+          id?: string
+          maturity_confirmed?: boolean
+          package_robux: number
+          payment_method?: string | null
+          roblox_username: string
+          status?: string
+          universe_id: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          api_key?: string
+          created_at?: string
+          id?: string
+          maturity_confirmed?: boolean
+          package_robux?: number
+          payment_method?: string | null
+          roblox_username?: string
+          status?: string
+          universe_id?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
