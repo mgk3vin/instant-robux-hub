@@ -18,12 +18,20 @@ function RegisterPage() {
     e.preventDefault();
     if (password.length < 8) return toast.error("Password must be at least 8 characters");
     setLoading(true);
-    const { error } = await supabase.auth.signUp({ email, password,
-      options: { emailRedirectTo: window.location.origin + "/dashboard" } });
-    setLoading(false);
-    if (error) return toast.error(error.message);
-    toast.success("Account created! Check your email to verify.");
-    nav({ to: "/login" });
+    try {
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: { emailRedirectTo: window.location.origin + "/dashboard" },
+      });
+      if (error) return toast.error(error.message);
+      toast.success("Account created! Check your email to verify.");
+      nav({ to: "/login" });
+    } catch {
+      toast.error("Account creation failed. Check your connection and try again.");
+    } finally {
+      setLoading(false);
+    }
   };
   return (
     <AuthShell title="Create your account" subtitle="Start ordering Robux in minutes"

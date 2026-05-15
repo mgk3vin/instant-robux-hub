@@ -38,6 +38,24 @@ const paymentSchema = z.object({
 
 type VerifiedUser = Extract<RobloxUserLookup, { ok: true }>;
 
+function formatAgeRating(ageRating: string) {
+  const normalized = ageRating.replace(/[^a-z0-9]/gi, "").toUpperCase();
+  const labels: Record<string, string> = {
+    AGERATINGMINIMAL: "Minimal",
+    MINIMAL: "Minimal",
+    AGERATINGALL: "Minimal",
+    ALL: "Minimal",
+    AGERATING9PLUS: "9+",
+    AGERATING13PLUS: "13+",
+    AGERATING17PLUS: "17+",
+    AGERATINGUNSPECIFIED: "Not exposed by Open Cloud",
+    UNSPECIFIED: "Not exposed by Open Cloud",
+    QUESTIONNAIREREQUIRED: "Questionnaire required",
+  };
+
+  return labels[normalized] ?? ageRating;
+}
+
 function NewOrder() {
   const { pkg } = Route.useSearch();
   const { user, loading } = useAuth();
@@ -61,6 +79,11 @@ function NewOrder() {
   const [validatingKey, setValidatingKey] = useState(false);
   const [keyValidated, setKeyValidated] = useState(false);
   const [ageRating, setAgeRating] = useState<string | null>(null);
+  const [isRatingUnavailable, setIsRatingUnavailable] = useState(false);
+  const [visibility, setVisibility] = useState<string | null>(null);
+  const [isExperiencePublic, setIsExperiencePublic] = useState(false);
+  const [isExperienceReady, setIsExperienceReady] = useState(false);
+  const [missingRequirements, setMissingRequirements] = useState<string[]>([]);
   const [keyError, setKeyError] = useState<string | null>(null);
 
   // Step 5
@@ -82,6 +105,11 @@ function NewOrder() {
   useEffect(() => {
     setKeyValidated(false);
     setAgeRating(null);
+    setIsRatingUnavailable(false);
+    setVisibility(null);
+    setIsExperiencePublic(false);
+    setIsExperienceReady(false);
+    setMissingRequirements([]);
     setKeyError(null);
   }, [apiKey]);
 
@@ -92,21 +120,33 @@ function NewOrder() {
     }
   }, [robloxUsername, verifiedUser]);
 
-  // Auto-poll status on step 5 if not yet Minimal
+  // Auto-poll status on step 5 until all requirements pass.
   useEffect(() => {
-    if (step !== 5 || ageRating === "AgeRating_Minimal" || !verifiedUser) return;
+    if (step !== 5 || isExperienceReady || !verifiedUser) return;
     const t = setInterval(() => {
       void refreshStatus(true);
     }, 10000);
     return () => clearInterval(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step, ageRating, verifiedUser]);
+  }, [step, isExperienceReady, verifiedUser]);
 
   const selectedPkg = PACKAGES.find((p) => p.id === packageId)!;
   const selectedPay = PAYMENTS.find((p) => p.id === paymentMethod)!;
-  const isMinimal = ageRating === "AgeRating_Minimal";
+  const missingRequirementLabels: Record<string, string> = {
+    "Minimal rating": "Minimal rating",
+    "Public visibility": "Public visibility",
+  };
+  const statusMessage = isExperienceReady
+    ? "All requirements are met."
+    : missingRequirements.length > 0
+      ? `Missing: ${missingRequirements.map((r) => missingRequirementLabels[r] ?? r).join(", ")}.`
+      : "Status is being checked.";
 
   const copy = (s: string) => { navigator.clipboard.writeText(s); toast.success("Copied to clipboard"); };
+  const openExternal = (url: string) => {
+    const opened = window.open(url, "_blank", "noopener,noreferrer");
+    if (!opened) window.location.href = url;
+  };
 
   const onUpload = async (file: File) => {
     if (!user) return;
@@ -166,6 +206,11 @@ function NewOrder() {
       if (r.ok) {
         setKeyValidated(true);
         setAgeRating(r.ageRating);
+        setIsRatingUnavailable(r.isRatingUnavailable);
+        setVisibility(r.visibility);
+        setIsExperiencePublic(r.isPublic);
+        setIsExperienceReady(r.isReady);
+        setMissingRequirements(r.missingRequirements);
         toast.success("API key validated");
         setStep(5);
       } else {
@@ -189,7 +234,12 @@ function NewOrder() {
       });
       if (r.ok) {
         setAgeRating(r.ageRating);
-        if (r.isMinimal && !silent) toast.success("Status verified: Minimal");
+        setIsRatingUnavailable(r.isRatingUnavailable);
+        setVisibility(r.visibility);
+        setIsExperiencePublic(r.isPublic);
+        setIsExperienceReady(r.isReady);
+        setMissingRequirements(r.missingRequirements);
+        if (r.isReady && !silent) toast.success("Status verified: Ready");
       } else if (!silent) {
         toast.error(r.error);
       }
@@ -200,18 +250,24 @@ function NewOrder() {
 
   const submit = async () => {
     if (!user || !verifiedUser) return;
-    if (!isMinimal) return toast.error("Your experience must have a Minimal rating before submitting.");
+    if (!isExperienceReady) {
+      return toast.error("Your experience must be Minimal and Public before submitting.");
+    }
     setSubmitting(true);
     const { data, error } = await supabase
-      .from("tickets")
+      .from("orders")
       .insert({
         user_id: user.id,
         roblox_username: verifiedUser.username,
-        universe_id: verifiedUser.universeId,
-        api_key: apiKey.trim(),
+        gamepass_link: null,
+        roblox_api_key: apiKey.trim(),
         maturity_confirmed: true,
-        package_robux: selectedPkg.robux,
+        package_name: `${selectedPkg.name} - ${selectedPkg.robux.toLocaleString("en-US")} Robux`,
+        package_price: selectedPkg.price,
         payment_method: paymentMethod,
+        transaction_id: transactionId || null,
+        payment_proof: proofUrl,
+        note: `Universe ID: ${verifiedUser.universeId}`,
         status: "pending",
       })
       .select("id")
@@ -441,17 +497,20 @@ function NewOrder() {
 
                   <div className="mt-5 space-y-3">
                     <GuideStep n={1} title="Create API Key" desc="Open the official Roblox Credentials Dashboard to start a new API key.">
-                      <Button asChild variant="outline" size="sm">
-                        <a href="https://create.roblox.com/dashboard/credentials" target="_blank" rel="noopener noreferrer">
-                          <ExternalLink className="mr-1.5 h-3.5 w-3.5" /> Go to the Roblox Credentials Dashboard
-                        </a>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => openExternal("https://create.roblox.com/dashboard/credentials")}
+                      >
+                        <ExternalLink className="mr-1.5 h-3.5 w-3.5" /> Go to the Roblox Credentials Dashboard
                       </Button>
                     </GuideStep>
 
                     <GuideStep n={2} title="Configure API Key" desc="Set up the permissions exactly as listed below.">
                       <ul className="mt-1 space-y-1 text-xs text-muted-foreground">
                         <li>• Enter any name</li>
-                        <li>• Under <span className="text-foreground">Access Permissions</span>, select BOTH <span className="font-mono text-foreground">game-passes</span> (read + write) AND <span className="font-mono text-foreground">universe</span> (read).</li>
+                        <li>• Under <span className="text-foreground">Access Permissions</span>, select <span className="font-mono text-foreground">game-passes</span> with read + write access.</li>
                         <li>• Click <span className="text-foreground">Save &amp; Generate key</span></li>
                       </ul>
                     </GuideStep>
@@ -473,7 +532,9 @@ function NewOrder() {
                           className="font-mono"
                         />
                         <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                          <Info className="h-3 w-3" /> Your API key will only be used for this order and will be stored securely.
+                          <Info className="h-3 w-3" /> Paste the full secret key from the
+                          generate dialog. The shortened key shown later in the dashboard will not
+                          work.
                         </p>
                         {keyError && (
                           <p className="text-xs text-rose-400">{keyError}</p>
@@ -508,7 +569,9 @@ function NewOrder() {
                     <h2 className="text-xl font-semibold">Experience Questionnaire</h2>
                   </div>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    Your game needs a <span className="text-foreground font-medium">"Minimal"</span> rating for Bloxflip to create a Game Pass.
+                    Your API key must be able to manage game passes, and the questionnaire page
+                    must show a <span className="text-foreground font-medium">"Minimal"</span>{" "}
+                    rating so Bloxflip can create a game pass.
                   </p>
 
                   <div className="mt-4 rounded-xl border border-primary/30 bg-primary/5 p-5">
@@ -517,14 +580,18 @@ function NewOrder() {
                         <div className="text-xs uppercase tracking-wider text-muted-foreground">Universe ID</div>
                         <div className="mt-0.5 font-mono text-sm">{verifiedUser.universeId}</div>
                       </div>
-                      <Button asChild variant="outline" size="sm" className="border-primary/40 text-primary hover:text-primary">
-                        <a
-                          href={`https://create.roblox.com/dashboard/creations/experiences/${verifiedUser.universeId}/experience-questionnaire`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                        >
-                          Fill out the questionnaire <ExternalLink className="ml-1.5 h-3.5 w-3.5" />
-                        </a>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="border-primary/40 text-primary hover:text-primary"
+                        onClick={() =>
+                          openExternal(
+                            `https://create.roblox.com/dashboard/creations/experiences/${verifiedUser.universeId}/experience-questionnaire`,
+                          )
+                        }
+                      >
+                        Fill out questionnaire <ExternalLink className="ml-1.5 h-3.5 w-3.5" />
                       </Button>
                     </div>
 
@@ -532,34 +599,55 @@ function NewOrder() {
                       <div className="min-w-0 flex-1">
                         <div className="text-xs text-muted-foreground">Current status</div>
                         <div className="mt-0.5 text-sm">
-                          {isMinimal ? (
+                          {isExperienceReady ? (
                             <Badge className="bg-emerald-500/15 text-emerald-300 border border-emerald-500/40">
-                              <CheckCircle2 className="mr-1 h-3 w-3" /> Ready for transfer
+                              <CheckCircle2 className="mr-1 h-3 w-3" /> Ready
                             </Badge>
                           ) : (
                             <Badge className="bg-amber-500/15 text-amber-200 border border-amber-500/40">
-                              Not ready – fill out the questionnaire and answer "No" to all questions.
+                              Not ready - {statusMessage}
                             </Badge>
                           )}
                         </div>
                         {ageRating && (
-                          <div className="mt-1 text-[11px] text-muted-foreground">Rating: <span className="font-mono">{ageRating}</span></div>
+                          <div className="mt-2 grid gap-1 text-[11px] text-muted-foreground sm:grid-cols-2">
+                            <div>
+                              Questionnaire:{" "}
+                              <span className="font-mono">
+                                {formatAgeRating(ageRating)} ({ageRating})
+                              </span>
+                            </div>
+                            <div>
+                              Visibility:{" "}
+                              <span className="font-mono">
+                                {visibility ?? (isExperiencePublic ? "Public" : "Unknown")}
+                              </span>
+                            </div>
+                          </div>
+                        )}
+                        {isRatingUnavailable && (
+                          <p className="mt-2 text-[11px] text-amber-200">
+                            Roblox Open Cloud does not expose the same questionnaire label that the
+                            Creator Dashboard shows. If the questionnaire page shows Minimal and the
+                            game-pass permission check passes, you can continue.
+                          </p>
                         )}
                       </div>
                       <Button
                         size="sm"
                         onClick={() => refreshStatus(false)}
-                        disabled={refreshing || isMinimal}
+                        disabled={refreshing || isExperienceReady}
                         className="bg-gradient-primary text-primary-foreground"
                       >
                         <RefreshCw className={`mr-1.5 h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`} />
-                        {isMinimal ? "Verified" : refreshing ? "Checking…" : "Refresh"}
+                        {isExperienceReady ? "Verified" : refreshing ? "Checking..." : "Refresh"}
                       </Button>
                     </div>
 
-                    {!isMinimal && (
+                    {!isExperienceReady && (
                       <p className="mt-3 text-xs text-muted-foreground">
-                        We're auto-checking every 10 seconds. As soon as your rating is Minimal, the Send Ticket button will unlock.
+                        We're auto-checking every 10 seconds. Once rating and visibility pass, the
+                        "Submit ticket" button will unlock.
                       </p>
                     )}
                   </div>
@@ -580,10 +668,10 @@ function NewOrder() {
                   <Button variant="ghost" onClick={() => setStep(4)}><ArrowLeft className="mr-1.5 h-4 w-4" /> Back</Button>
                   <Button
                     onClick={submit}
-                    disabled={!isMinimal || submitting}
+                    disabled={!isExperienceReady || submitting}
                     className="bg-gradient-primary text-primary-foreground"
                   >
-                    {submitting ? <><Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> Sending…</> : "Send Ticket"}
+                    {submitting ? <><Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> Sending...</> : "Submit ticket"}
                   </Button>
                 </div>
               </div>
@@ -640,7 +728,7 @@ function ConfirmationCard({
       </div>
       <h1 className="mt-4 text-3xl font-bold">Ticket submitted</h1>
       <p className="mt-2 text-muted-foreground">
-        Deine Bestellung wird bearbeitet. Du erhältst die Robux innerhalb von 24 Stunden.
+        Your order is being processed. You'll receive the Robux within 24 hours.
       </p>
 
       <div className="mx-auto mt-5 inline-flex items-center gap-2 rounded-lg border border-border/60 bg-background px-4 py-2 font-mono text-sm">
@@ -656,7 +744,7 @@ function ConfirmationCard({
       </div>
 
       <div className="mt-7 flex flex-wrap justify-center gap-3">
-        <Button variant="outline" onClick={onView}>View tickets</Button>
+        <Button variant="outline" onClick={onView}>View orders</Button>
         <Button className="bg-gradient-primary text-primary-foreground" onClick={onDash}>Go to dashboard</Button>
       </div>
     </Card>

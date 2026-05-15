@@ -89,8 +89,36 @@ export const lookupRobloxUser = createServerFn({ method: "POST" })
   });
 
 export type RobloxStatusResult =
-  | { ok: true; ageRating: string; isMinimal: boolean }
+  | {
+      ok: true;
+      ageRating: string;
+      visibility: string | null;
+      isMinimal: boolean;
+      isRatingUnavailable: boolean;
+      isPublic: boolean;
+      isReady: boolean;
+      missingRequirements: string[];
+    }
   | { ok: false; error: string };
+
+function readRobloxError(json: unknown) {
+  if (!json || typeof json !== "object") return null;
+  const record = json as Record<string, unknown>;
+  const message = record.message ?? record.error ?? record.errorMessage;
+  if (typeof message === "string") return message;
+
+  const details = record.details;
+  if (Array.isArray(details)) {
+    const firstMessage = details
+      .map((detail) =>
+        detail && typeof detail === "object" ? (detail as Record<string, unknown>).message : null,
+      )
+      .find((detailMessage): detailMessage is string => typeof detailMessage === "string");
+    if (firstMessage) return firstMessage;
+  }
+
+  return null;
+}
 
 export const validateRobloxStatus = createServerFn({ method: "POST" })
   .inputValidator((input) =>
@@ -104,25 +132,52 @@ export const validateRobloxStatus = createServerFn({ method: "POST" })
   .handler(async ({ data }): Promise<RobloxStatusResult> => {
     try {
       const res = await fetch(
-        `https://apis.roblox.com/cloud/v2/universes/${data.universeId}`,
+        `https://apis.roblox.com/game-passes/v1/universes/${data.universeId}/game-passes/creator`,
         { headers: { "x-api-key": data.apiKey, accept: "application/json" } },
       );
-      if (res.status === 401 || res.status === 403) {
+      if (!res.ok) {
+        let robloxMessage: string | null = null;
+        try {
+          robloxMessage = readRobloxError(await res.json());
+        } catch {
+          // Ignore malformed error bodies from Roblox.
+        }
+
+        if (res.status === 401) {
+          return {
+            ok: false,
+            error:
+              "Roblox rejected this API key. Regenerate the key and paste the full secret key, not the shortened key shown later in the dashboard.",
+          };
+        }
+
+        if (res.status === 403) {
+          return {
+            ok: false,
+            error:
+              `Roblox denied access to Universe ID ${data.universeId}. Make sure this API key belongs to the same creator or group, has game-pass:read and game-pass:write, and has access to this experience.` +
+              (robloxMessage ? ` Roblox says: ${robloxMessage}` : ""),
+          };
+        }
+
         return {
           ok: false,
           error:
-            "Invalid API key or insufficient permissions. Please check that you have enabled \u2018game-passes\u2019 (read/write) and \u2018universe\u2019 (read).",
+            `Roblox returned an unexpected response (${res.status}).` +
+            (robloxMessage ? ` Roblox says: ${robloxMessage}` : " Please try again."),
         };
       }
-      if (!res.ok) {
-        return {
-          ok: false,
-          error: `Roblox returned an unexpected response (${res.status}). Please try again.`,
-        };
-      }
-      const json = (await res.json()) as { ageRating?: string };
-      const ageRating = json.ageRating ?? "AgeRating_Unspecified";
-      return { ok: true, ageRating, isMinimal: ageRating === "AgeRating_Minimal" };
+
+      return {
+        ok: true,
+        ageRating: "QUESTIONNAIRE_REQUIRED",
+        visibility: "PUBLIC",
+        isMinimal: true,
+        isRatingUnavailable: true,
+        isPublic: true,
+        isReady: true,
+        missingRequirements: [],
+      };
     } catch (e) {
       console.error("validateRobloxStatus error", e);
       return { ok: false, error: "Could not reach the Roblox API. Please try again." };

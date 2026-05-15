@@ -47,7 +47,7 @@ function OrderDetail() {
           <h2 className="text-lg font-semibold">Order details</h2>
           <F l="Package" v={`${order.package_name} — $${Number(order.package_price).toFixed(2)}`} />
           <F l="Roblox username" v={order.roblox_username} />
-          <F l="Gamepass link" v={<a className="text-primary hover:underline break-all" href={order.gamepass_link} target="_blank" rel="noreferrer">{order.gamepass_link}</a>} />
+          {order.gamepass_link && <F l="Gamepass link" v={<a className="text-primary hover:underline break-all" href={order.gamepass_link} target="_blank" rel="noreferrer">{order.gamepass_link}</a>} />}
           <F l="Payment method" v={order.payment_method.toUpperCase()} />
           {order.note && <F l="Your note" v={order.note} />}
           {order.admin_note && <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 text-sm"><div className="text-xs uppercase tracking-wider text-primary mb-1">Message from support</div>{order.admin_note}</div>}

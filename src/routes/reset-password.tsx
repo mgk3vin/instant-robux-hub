@@ -17,11 +17,16 @@ function ResetPage() {
     e.preventDefault();
     if (password.length < 8) return toast.error("Password must be at least 8 characters");
     setLoading(true);
-    const { error } = await supabase.auth.updateUser({ password });
-    setLoading(false);
-    if (error) return toast.error(error.message);
-    toast.success("Password updated");
-    nav({ to: "/dashboard" });
+    try {
+      const { error } = await supabase.auth.updateUser({ password });
+      if (error) return toast.error(error.message);
+      toast.success("Password updated");
+      nav({ to: "/dashboard" });
+    } catch {
+      toast.error("Password update failed. Check your connection and try again.");
+    } finally {
+      setLoading(false);
+    }
   };
   return (
     <AuthShell title="Set a new password" subtitle="Choose a strong password">

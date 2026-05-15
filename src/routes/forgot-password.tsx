@@ -16,12 +16,18 @@ function ForgotPage() {
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: window.location.origin + "/reset-password" });
-    setLoading(false);
-    if (error) return toast.error(error.message);
-    setSent(true);
-    toast.success("Reset link sent");
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: window.location.origin + "/reset-password",
+      });
+      if (error) return toast.error(error.message);
+      setSent(true);
+      toast.success("Reset link sent");
+    } catch {
+      toast.error("Reset email failed. Check your connection and try again.");
+    } finally {
+      setLoading(false);
+    }
   };
   return (
     <AuthShell title="Forgot password" subtitle="We'll email you a reset link"

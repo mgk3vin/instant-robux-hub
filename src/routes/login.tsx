@@ -17,11 +17,16 @@ function LoginPage() {
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    setLoading(false);
-    if (error) return toast.error(error.message);
-    toast.success("Welcome back!");
-    nav({ to: "/dashboard" });
+    try {
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) return toast.error(error.message);
+      toast.success("Welcome back!");
+      nav({ to: "/dashboard" });
+    } catch {
+      toast.error("Sign in failed. Check your connection and try again.");
+    } finally {
+      setLoading(false);
+    }
   };
   return (
     <AuthShell title="Sign in" subtitle="Welcome back to InstantBlox"

@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { STATUS_COLOR, STATUS_LABEL } from "@/lib/packages";
-import { Search } from "lucide-react";
+import { Eye, Search } from "lucide-react";
 
 export const Route = createFileRoute("/admin/orders")({ component: AdminOrders });
 
@@ -39,7 +39,7 @@ function AdminOrders() {
       <Card className="border-border/60 bg-gradient-card p-0 shadow-card-soft overflow-hidden">
         <div className="overflow-x-auto"><table className="w-full text-sm">
           <thead className="border-b border-border/60 text-left text-xs uppercase tracking-wider text-muted-foreground">
-            <tr><th className="px-4 py-3">Order</th><th className="px-4 py-3">Roblox user</th><th className="px-4 py-3">Package</th><th className="px-4 py-3">Method</th><th className="px-4 py-3">Status</th><th className="px-4 py-3">Date</th></tr>
+            <tr><th className="px-4 py-3">Order</th><th className="px-4 py-3">Roblox user</th><th className="px-4 py-3">Package</th><th className="px-4 py-3">Method</th><th className="px-4 py-3">Status</th><th className="px-4 py-3">Date</th><th className="px-4 py-3 text-right">Details</th></tr>
           </thead>
           <tbody className="divide-y divide-border/60">{filtered.map((o)=>(
             <tr key={o.id} className="hover:bg-muted/20">
@@ -49,8 +49,13 @@ function AdminOrders() {
               <td className="px-4 py-3 uppercase text-xs text-muted-foreground">{o.payment_method}</td>
               <td className="px-4 py-3"><Badge variant="outline" className={STATUS_COLOR[o.status]}>{STATUS_LABEL[o.status]}</Badge></td>
               <td className="px-4 py-3 text-muted-foreground">{new Date(o.created_at).toLocaleDateString()}</td>
+              <td className="px-4 py-3 text-right">
+                <Link to="/admin/orders/$id" params={{id:o.id}} className="inline-flex items-center gap-1 rounded-md border border-border/60 px-2.5 py-1.5 text-xs text-primary hover:bg-primary/10">
+                  <Eye className="h-3.5 w-3.5" /> Open
+                </Link>
+              </td>
             </tr>))}
-            {filtered.length === 0 && <tr><td colSpan={6} className="py-12 text-center text-muted-foreground">No orders match.</td></tr>}
+            {filtered.length === 0 && <tr><td colSpan={7} className="py-12 text-center text-muted-foreground">No orders match.</td></tr>}
           </tbody>
         </table></div>
       </Card>
