@@ -22,9 +22,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as DashboardIndexRouteImport } from './routes/dashboard.index'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as DashboardOrdersRouteImport } from './routes/dashboard.orders'
-import { Route as AdminOrdersRouteImport } from './routes/admin.orders'
 import { Route as DashboardOrdersIdRouteImport } from './routes/dashboard.orders.$id'
-import { Route as AdminOrdersIdRouteImport } from './routes/admin.orders.$id'
 
 const TermsRoute = TermsRouteImport.update({
   id: '/terms',
@@ -91,20 +89,10 @@ const DashboardOrdersRoute = DashboardOrdersRouteImport.update({
   path: '/dashboard/orders',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AdminOrdersRoute = AdminOrdersRouteImport.update({
-  id: '/admin/orders',
-  path: '/admin/orders',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const DashboardOrdersIdRoute = DashboardOrdersIdRouteImport.update({
   id: '/$id',
   path: '/$id',
   getParentRoute: () => DashboardOrdersRoute,
-} as any)
-const AdminOrdersIdRoute = AdminOrdersIdRouteImport.update({
-  id: '/$id',
-  path: '/$id',
-  getParentRoute: () => AdminOrdersRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
@@ -118,11 +106,9 @@ export interface FileRoutesByFullPath {
   '/register': typeof RegisterRoute
   '/reset-password': typeof ResetPasswordRoute
   '/terms': typeof TermsRoute
-  '/admin/orders': typeof AdminOrdersRouteWithChildren
   '/dashboard/orders': typeof DashboardOrdersRouteWithChildren
   '/admin/': typeof AdminIndexRoute
   '/dashboard/': typeof DashboardIndexRoute
-  '/admin/orders/$id': typeof AdminOrdersIdRoute
   '/dashboard/orders/$id': typeof DashboardOrdersIdRoute
 }
 export interface FileRoutesByTo {
@@ -136,11 +122,9 @@ export interface FileRoutesByTo {
   '/register': typeof RegisterRoute
   '/reset-password': typeof ResetPasswordRoute
   '/terms': typeof TermsRoute
-  '/admin/orders': typeof AdminOrdersRouteWithChildren
   '/dashboard/orders': typeof DashboardOrdersRouteWithChildren
   '/admin': typeof AdminIndexRoute
   '/dashboard': typeof DashboardIndexRoute
-  '/admin/orders/$id': typeof AdminOrdersIdRoute
   '/dashboard/orders/$id': typeof DashboardOrdersIdRoute
 }
 export interface FileRoutesById {
@@ -155,11 +139,9 @@ export interface FileRoutesById {
   '/register': typeof RegisterRoute
   '/reset-password': typeof ResetPasswordRoute
   '/terms': typeof TermsRoute
-  '/admin/orders': typeof AdminOrdersRouteWithChildren
   '/dashboard/orders': typeof DashboardOrdersRouteWithChildren
   '/admin/': typeof AdminIndexRoute
   '/dashboard/': typeof DashboardIndexRoute
-  '/admin/orders/$id': typeof AdminOrdersIdRoute
   '/dashboard/orders/$id': typeof DashboardOrdersIdRoute
 }
 export interface FileRouteTypes {
@@ -175,11 +157,9 @@ export interface FileRouteTypes {
     | '/register'
     | '/reset-password'
     | '/terms'
-    | '/admin/orders'
     | '/dashboard/orders'
     | '/admin/'
     | '/dashboard/'
-    | '/admin/orders/$id'
     | '/dashboard/orders/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -193,11 +173,9 @@ export interface FileRouteTypes {
     | '/register'
     | '/reset-password'
     | '/terms'
-    | '/admin/orders'
     | '/dashboard/orders'
     | '/admin'
     | '/dashboard'
-    | '/admin/orders/$id'
     | '/dashboard/orders/$id'
   id:
     | '__root__'
@@ -211,11 +189,9 @@ export interface FileRouteTypes {
     | '/register'
     | '/reset-password'
     | '/terms'
-    | '/admin/orders'
     | '/dashboard/orders'
     | '/admin/'
     | '/dashboard/'
-    | '/admin/orders/$id'
     | '/dashboard/orders/$id'
   fileRoutesById: FileRoutesById
 }
@@ -230,7 +206,6 @@ export interface RootRouteChildren {
   RegisterRoute: typeof RegisterRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   TermsRoute: typeof TermsRoute
-  AdminOrdersRoute: typeof AdminOrdersRouteWithChildren
   DashboardOrdersRoute: typeof DashboardOrdersRouteWithChildren
   AdminIndexRoute: typeof AdminIndexRoute
   DashboardIndexRoute: typeof DashboardIndexRoute
@@ -329,13 +304,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardOrdersRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/admin/orders': {
-      id: '/admin/orders'
-      path: '/admin/orders'
-      fullPath: '/admin/orders'
-      preLoaderRoute: typeof AdminOrdersRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/dashboard/orders/$id': {
       id: '/dashboard/orders/$id'
       path: '/$id'
@@ -343,27 +311,8 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardOrdersIdRouteImport
       parentRoute: typeof DashboardOrdersRoute
     }
-    '/admin/orders/$id': {
-      id: '/admin/orders/$id'
-      path: '/$id'
-      fullPath: '/admin/orders/$id'
-      preLoaderRoute: typeof AdminOrdersIdRouteImport
-      parentRoute: typeof AdminOrdersRoute
-    }
   }
 }
-
-interface AdminOrdersRouteChildren {
-  AdminOrdersIdRoute: typeof AdminOrdersIdRoute
-}
-
-const AdminOrdersRouteChildren: AdminOrdersRouteChildren = {
-  AdminOrdersIdRoute: AdminOrdersIdRoute,
-}
-
-const AdminOrdersRouteWithChildren = AdminOrdersRoute._addFileChildren(
-  AdminOrdersRouteChildren,
-)
 
 interface DashboardOrdersRouteChildren {
   DashboardOrdersIdRoute: typeof DashboardOrdersIdRoute
@@ -388,7 +337,6 @@ const rootRouteChildren: RootRouteChildren = {
   RegisterRoute: RegisterRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   TermsRoute: TermsRoute,
-  AdminOrdersRoute: AdminOrdersRouteWithChildren,
   DashboardOrdersRoute: DashboardOrdersRouteWithChildren,
   AdminIndexRoute: AdminIndexRoute,
   DashboardIndexRoute: DashboardIndexRoute,

@@ -40,7 +40,6 @@ export function DashboardShell({ children, admin = false }: { children: ReactNod
   ];
   const adminItems: Item[] = [
     { to: "/admin", icon: LayoutDashboard, label: "Overview" },
-    { to: "/admin/orders", icon: ShoppingBag, label: "All Orders" },
   ];
   const items = admin ? adminItems : userItems;
 
