@@ -9,7 +9,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { STATUS_LABEL, STATUS_COLOR } from "@/lib/packages";
 import { Plus, ShoppingBag, Clock, CheckCircle2 } from "lucide-react";
 
-export const Route = createFileRoute("/dashboard")({ component: DashboardHome });
+export const Route = createFileRoute("/dashboard/")({ component: DashboardHome });
 
 interface Order { id: string; package_name: string; package_price: number; status: string; created_at: string }
 

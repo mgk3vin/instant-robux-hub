@@ -7,7 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { STATUS_COLOR, STATUS_LABEL } from "@/lib/packages";
 import { ShoppingBag, Clock, CheckCircle2, DollarSign } from "lucide-react";
 
-export const Route = createFileRoute("/admin")({ component: AdminHome });
+export const Route = createFileRoute("/admin/")({ component: AdminHome });
 
 function AdminHome() {
   const [stats, setStats] = useState({ total: 0, pending: 0, delivered: 0, revenue: 0 });
